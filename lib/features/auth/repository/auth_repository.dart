@@ -41,18 +41,31 @@ class AuthRepository {
     try {
       UserCredential userCredential;
       if (kIsWeb) {
+        // Web flow
         GoogleAuthProvider googleProvider = GoogleAuthProvider();
         googleProvider
             .addScope('https://www.googleapis.com/auth/contacts.readonly');
-        userCredential = await _auth.signInWithPopup(googleProvider); //for web.
+        userCredential = await _auth.signInWithPopup(googleProvider);
       } else {
-        final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
-        final googleAuth = await googleUser?.authentication;
+        // Mobile (Android / iOS)
+        final GoogleSignInAccount? googleUser =
+            await GoogleSignIn.instance.authenticate(
+              scopeHint: ['email', 'https://www.googleapis.com/auth/contacts.readonly'],
+            );
+        if (googleUser == null) {
+          return left(Failure("Sign in aborted by user"));
+        }
+
+        // Get authentication tokens
+        final GoogleSignInAuthentication googleAuth =
+             googleUser.authentication;
+
+        // Create Firebase credential
         final credential = GoogleAuthProvider.credential(
-          idToken: googleAuth?.idToken,
-          accessToken: googleAuth?.accessToken,
+          idToken: googleAuth.idToken,
         );
-        //for ios and android.
+
+        // Sign in with Firebase
         if (isFromLogin) {
           userCredential = await _auth.signInWithCredential(credential);
         } else {
